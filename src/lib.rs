@@ -44,8 +44,69 @@ impl parse::Parse for Idents {
 	}
 }
 
+enum Access {
+	Direct(proc_macro2::TokenStream),
+	Reference(proc_macro2::TokenStream)
+}
+
+impl Access {
+	pub fn by_ref(&self) -> ByRef {
+		ByRef(self)
+	}
+
+	pub fn by_deref(&self) -> ByDeref {
+		ByDeref(self)
+	}
+}
+
+impl quote::ToTokens for Access {
+	fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+		match self {
+			Access::Direct(t) => {
+				t.to_tokens(tokens)
+			}
+			Access::Reference(t) => {
+				t.to_tokens(tokens)
+			}
+		}
+	}
+}
+
+struct ByRef<'a>(&'a Access);
+
+impl<'a> quote::ToTokens for ByRef<'a> {
+	fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+		match &self.0 {
+			Access::Direct(t) => {
+				tokens.extend(quote! { & });
+				t.to_tokens(tokens)
+			}
+			Access::Reference(t) => {
+				t.to_tokens(tokens)
+			}
+		}
+	}
+}
+
+struct ByDeref<'a>(&'a Access);
+
+impl<'a> quote::ToTokens for ByDeref<'a> {
+	fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+		match &self.0 {
+			Access::Direct(t) => {
+				tokens.extend(quote! { * });
+				t.to_tokens(tokens)
+			}
+			Access::Reference(t) => {
+				tokens.extend(quote! { ** });
+				t.to_tokens(tokens)
+			}
+		}
+	}
+}
+
 #[proc_macro_error]
-#[proc_macro_derive(StrippedPartialEq, attributes(stripped, stripped_loc))]
+#[proc_macro_derive(StrippedPartialEq, attributes(stripped, stripped_deref, stripped_option_deref))]
 pub fn derive_stripped_partial_eq(input: TokenStream) -> TokenStream {
 	let input = parse_macro_input!(input as DeriveInput);
 
@@ -115,7 +176,7 @@ pub fn derive_stripped_partial_eq(input: TokenStream) -> TokenStream {
 					}
 				};
 
-				(field, (quote! { self.#id }, quote! { other.#id }))
+				(field, (Access::Direct(quote! { self.#id }), Access::Direct(quote! { other.#id })))
 			}))
 		}
 		syn::Data::Enum(e) => {
@@ -138,8 +199,8 @@ pub fn derive_stripped_partial_eq(input: TokenStream) -> TokenStream {
 								&format!("__other_{}", ident),
 								proc_macro2::Span::call_site(),
 							);
-							self_args.push(quote! { #self_ident });
-							other_args.push(quote! { #other_ident });
+							self_args.push(Access::Reference(quote! { #self_ident }));
+							other_args.push(Access::Reference(quote! { #other_ident }));
 
 							self_fields.push(quote! { #ident: #self_ident });
 							other_fields.push(quote! { #ident: #other_ident })
@@ -161,8 +222,8 @@ pub fn derive_stripped_partial_eq(input: TokenStream) -> TokenStream {
 								proc_macro2::Span::call_site(),
 							);
 
-							self_args.push(quote! { #id });
-							other_args.push(quote! { #other_id });
+							self_args.push(Access::Reference(quote! { #id }));
+							other_args.push(Access::Reference(quote! { #other_id }));
 						}
 
 						(
@@ -214,31 +275,56 @@ fn fields_comparisons<'a>(
 		+ IntoIterator<
 			Item = (
 				&'a syn::Field,
-				(proc_macro2::TokenStream, proc_macro2::TokenStream),
+				(Access, Access),
 			),
 		>,
 ) -> proc_macro2::TokenStream {
 	let mut comparisons = proc_macro2::TokenStream::new();
 
 	for (field, (self_path, other_path)) in fields {
-		let mut stripped = false;
-		let mut stripped_loc = false;
+		pub enum Method {
+			Strip,
+			PartialEq,
+			DerefThenPartialEq,
+			UnwrapThenDerefThenPartialEq
+		}
+
+		let mut method = Method::Strip;
 
 		for attr in &field.attrs {
-			stripped |= attr.path.is_ident("stripped");
-			stripped_loc |= attr.path.is_ident("stripped_loc");
+			if attr.path.is_ident("stripped") {
+				method = Method::PartialEq
+			}
+
+			if attr.path.is_ident("stripped_deref") {
+				method = Method::DerefThenPartialEq
+			}
+
+			if attr.path.is_ident("stripped_option_deref") {
+				method = Method::UnwrapThenDerefThenPartialEq
+			}
 		}
 
 		if !comparisons.is_empty() {
 			comparisons.extend(quote! { && })
 		}
 
-		if stripped {
-			comparisons.extend(quote! { #self_path == #other_path })
-		} else if stripped_loc {
-			comparisons.extend(quote! { #self_path.value() == #other_path.value() })
-		} else {
-			comparisons.extend(quote! { #self_path.stripped_eq(&#other_path) })
+		match method {
+			Method::Strip => {
+				let other_path = other_path.by_ref();
+				comparisons.extend(quote! { #self_path.stripped_eq(#other_path) })
+			}
+			Method::PartialEq => {
+				comparisons.extend(quote! { #self_path == #other_path })
+			}
+			Method::DerefThenPartialEq => {
+				let self_path = self_path.by_deref();
+				let other_path = other_path.by_deref();
+				comparisons.extend(quote! { #self_path == #other_path })
+			}
+			Method::UnwrapThenDerefThenPartialEq => {
+				comparisons.extend(quote! { #self_path.as_ref().zip(#other_path.as_ref()).map(|(a, b)| **a == **b).unwrap_or(true) })
+			}
 		}
 	}
 

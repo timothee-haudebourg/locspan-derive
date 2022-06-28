@@ -4,7 +4,7 @@ use locspan_derive::StrippedPartialEq;
 #[derive(PartialEq, StrippedPartialEq, Debug)]
 #[stripped(S, P)]
 pub enum Foo<S, P> {
-	A(#[stripped_loc] Loc<usize, S, P>),
+	A(#[stripped_deref] Loc<usize, S, P>),
 	B(#[stripped] char, #[stripped] usize),
 }
 
