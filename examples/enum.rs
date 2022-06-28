@@ -2,7 +2,7 @@ use locspan::{BorrowStripped, Loc, Location};
 use locspan_derive::StrippedPartialEq;
 
 #[derive(PartialEq, StrippedPartialEq, Debug)]
-#[stripped(S, P)]
+#[stripped_ignore(S, P)]
 pub enum Foo<S, P> {
 	A(#[stripped_deref] Loc<usize, S, P>),
 	B(#[stripped] char, #[stripped] usize),

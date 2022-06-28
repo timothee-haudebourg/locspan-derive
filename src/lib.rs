@@ -11,9 +11,10 @@
 //! // Implement `StrippedPartialEq` for the `Foo` type.
 //! // Type parameters will be required to implement
 //! // `StrippedPartialEq` themselves unless they are marked
-//! // with `#[stripped]`.
+//! // with `#[stripped_ignore]`.
 //! #[derive(StrippedPartialEq)]
-//! struct Foo<T, #[stripped] S, #[stripped] P> {
+//! #[stripped_ignore(S, P)]
+//! struct Foo<T, S, P> {
 //!   a: Loc<T, S, P>,
 //!
 //!   // Files are compared using `StrippedPartialEq`
@@ -26,7 +27,7 @@
 use proc_macro::{Span, TokenStream};
 use proc_macro_error::{emit_error, proc_macro_error};
 use quote::quote;
-use std::collections::HashSet;
+use std::collections::HashMap;
 use syn::{parse, parse_macro_input, punctuated::Punctuated, token, DeriveInput};
 
 struct Idents {
@@ -110,52 +111,90 @@ pub fn derive_stripped_partial_eq(input: TokenStream) -> TokenStream {
 	let ident = input.ident;
 	let mut generics = input.generics;
 
-	let mut stripped_params = HashSet::new();
+	#[derive(Clone, Copy)]
+	pub enum ParamConfig {
+		Ignore,
+		PartialEq,
+	}
+
+	let mut params = HashMap::new();
 	for attr in input.attrs {
 		if attr.path.is_ident("stripped") {
 			let tokens = attr.tokens.into();
 			let idents = parse_macro_input!(tokens as Idents);
-			stripped_params.extend(idents.idents)
+			for ident in idents.idents {
+				params.insert(ident, ParamConfig::PartialEq);
+			}
+		} else if attr.path.is_ident("stripped_ignore") {
+			let tokens = attr.tokens.into();
+			let idents = parse_macro_input!(tokens as Idents);
+			for ident in idents.idents {
+				params.insert(ident, ParamConfig::Ignore);
+			}
 		}
 	}
 
 	for p in generics.params.iter_mut() {
 		if let syn::GenericParam::Type(ty) = p {
-			let mut stripped = stripped_params.contains(&ty.ident);
-			let attrs = std::mem::take(&mut ty.attrs);
-			ty.attrs.extend(attrs.into_iter().filter(|attr| {
-				if attr.path.is_ident("stripped") {
-					stripped = true;
-					false
-				} else {
-					true
+			match params.get(&ty.ident) {
+				Some(ParamConfig::Ignore) => (),
+				Some(ParamConfig::PartialEq) => {
+					ty.bounds.push(syn::TypeParamBound::Trait(syn::TraitBound {
+						paren_token: None,
+						modifier: syn::TraitBoundModifier::None,
+						lifetimes: None,
+						path: syn::Path {
+							leading_colon: Some(syn::token::Colon2::default()),
+							segments: [
+								syn::PathSegment {
+									ident: syn::Ident::new("core", proc_macro2::Span::call_site()),
+									arguments: syn::PathArguments::None,
+								},
+								syn::PathSegment {
+									ident: syn::Ident::new("cmp", proc_macro2::Span::call_site()),
+									arguments: syn::PathArguments::None,
+								},
+								syn::PathSegment {
+									ident: syn::Ident::new(
+										"PartialEq",
+										proc_macro2::Span::call_site(),
+									),
+									arguments: syn::PathArguments::None,
+								},
+							]
+							.into_iter()
+							.collect(),
+						},
+					}));
 				}
-			}));
-
-			if !stripped {
-				ty.bounds.push(syn::TypeParamBound::Trait(syn::TraitBound {
-					paren_token: None,
-					modifier: syn::TraitBoundModifier::None,
-					lifetimes: None,
-					path: syn::Path {
-						leading_colon: Some(syn::token::Colon2::default()),
-						segments: [
-							syn::PathSegment {
-								ident: syn::Ident::new("locspan", proc_macro2::Span::call_site()),
-								arguments: syn::PathArguments::None,
-							},
-							syn::PathSegment {
-								ident: syn::Ident::new(
-									"StrippedPartialEq",
-									proc_macro2::Span::call_site(),
-								),
-								arguments: syn::PathArguments::None,
-							},
-						]
-						.into_iter()
-						.collect(),
-					},
-				}));
+				None => {
+					ty.bounds.push(syn::TypeParamBound::Trait(syn::TraitBound {
+						paren_token: None,
+						modifier: syn::TraitBoundModifier::None,
+						lifetimes: None,
+						path: syn::Path {
+							leading_colon: Some(syn::token::Colon2::default()),
+							segments: [
+								syn::PathSegment {
+									ident: syn::Ident::new(
+										"locspan",
+										proc_macro2::Span::call_site(),
+									),
+									arguments: syn::PathArguments::None,
+								},
+								syn::PathSegment {
+									ident: syn::Ident::new(
+										"StrippedPartialEq",
+										proc_macro2::Span::call_site(),
+									),
+									arguments: syn::PathArguments::None,
+								},
+							]
+							.into_iter()
+							.collect(),
+						},
+					}));
+				}
 			}
 		}
 	}
