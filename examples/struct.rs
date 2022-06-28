@@ -29,8 +29,12 @@ pub struct C<T: PartialEq> {
 pub struct Foo<T: Clone, #[stripped] S, #[stripped] P>(Loc<T, S, P>);
 
 fn main() {
-	let a = C { a: Some(Loc(Thing(0u32), Location::new(0u32, ()))) };
-	let b = C { a: Some(Loc(Thing(0u32), Location::new(1u32, ()))) };
+	let a = C {
+		a: Some(Loc(Thing(0u32), Location::new(0u32, ()))),
+	};
+	let b = C {
+		a: Some(Loc(Thing(0u32), Location::new(1u32, ()))),
+	};
 
 	assert_eq!(a.stripped(), b.stripped());
 
