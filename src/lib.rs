@@ -102,7 +102,7 @@ impl<'a> quote::ToTokens for ByDeref<'a> {
 #[proc_macro_error]
 #[proc_macro_derive(
 	StrippedPartialEq,
-	attributes(stripped, stripped_deref, stripped_option_deref)
+	attributes(stripped, stripped_deref, stripped_option_deref, stripped_ignore)
 )]
 pub fn derive_stripped_partial_eq(input: TokenStream) -> TokenStream {
 	let input = parse_macro_input!(input as DeriveInput);
