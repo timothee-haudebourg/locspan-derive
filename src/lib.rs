@@ -103,7 +103,13 @@ impl<'a> quote::ToTokens for ByDeref<'a> {
 #[proc_macro_error]
 #[proc_macro_derive(
 	StrippedPartialEq,
-	attributes(stripped, stripped_deref, stripped_option_deref, stripped_ignore)
+	attributes(
+		stripped,
+		stripped_deref,
+		stripped_option,
+		stripped_option_deref,
+		stripped_ignore
+	)
 )]
 pub fn derive_stripped_partial_eq(input: TokenStream) -> TokenStream {
 	let input = parse_macro_input!(input as DeriveInput);
@@ -323,6 +329,7 @@ fn fields_comparisons<'a>(
 			StrippedPartialEq,
 			PartialEq,
 			DerefThenPartialEq,
+			UnwrapThenPartialEq,
 			UnwrapThenDerefThenPartialEq,
 		}
 
@@ -339,6 +346,10 @@ fn fields_comparisons<'a>(
 
 			if attr.path.is_ident("stripped_deref") {
 				method = Method::DerefThenPartialEq
+			}
+
+			if attr.path.is_ident("stripped_option") {
+				method = Method::UnwrapThenPartialEq
 			}
 
 			if attr.path.is_ident("stripped_option_deref") {
@@ -362,6 +373,9 @@ fn fields_comparisons<'a>(
 				let other_path = other_path.by_deref();
 				comparisons.extend(quote! { #self_path == #other_path })
 			}
+			Method::UnwrapThenPartialEq => comparisons.extend(
+				quote! { #self_path.as_ref().zip(#other_path.as_ref()).map(|(a, b)| *a == *b).unwrap_or(true) },
+			),
 			Method::UnwrapThenDerefThenPartialEq => comparisons.extend(
 				quote! { #self_path.as_ref().zip(#other_path.as_ref()).map(|(a, b)| **a == **b).unwrap_or(true) },
 			),
