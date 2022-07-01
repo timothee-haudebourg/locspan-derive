@@ -1,5 +1,5 @@
 use locspan::{BorrowStripped, Loc, Location};
-use locspan_derive::StrippedPartialEq;
+use locspan_derive::{StrippedPartialEq, StrippedPartialOrd};
 
 #[derive(StrippedPartialEq, Debug)]
 pub struct Unit;
@@ -9,7 +9,7 @@ pub struct A<T: Clone> {
 	a: Loc<T, (), ()>,
 }
 
-#[derive(StrippedPartialEq, Debug)]
+#[derive(StrippedPartialEq, StrippedPartialOrd, Debug)]
 pub struct B<T> {
 	a: Loc<T, (), ()>,
 	#[stripped]
@@ -19,7 +19,7 @@ pub struct B<T> {
 #[derive(PartialEq, Debug)]
 pub struct Thing<T>(T);
 
-#[derive(StrippedPartialEq, Debug)]
+#[derive(StrippedPartialEq, StrippedPartialOrd, Debug)]
 pub struct C<T: PartialEq> {
 	#[stripped_option_deref]
 	a: Option<Loc<Thing<T>, u32, ()>>,
