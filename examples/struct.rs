@@ -1,5 +1,5 @@
 use locspan::{BorrowStripped, Loc, Location};
-use locspan_derive::{StrippedPartialEq, StrippedPartialOrd};
+use locspan_derive::*;
 
 #[derive(StrippedPartialEq, Debug)]
 pub struct Unit;
@@ -16,10 +16,10 @@ pub struct B<T> {
 	b: usize,
 }
 
-#[derive(PartialEq, PartialOrd, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Hash, Debug)]
 pub struct Thing<T>(T);
 
-#[derive(StrippedPartialEq, StrippedPartialOrd, Debug)]
+#[derive(StrippedPartialEq, StrippedEq, StrippedPartialOrd, StrippedHash, Debug)]
 #[stripped(T)]
 pub struct C<T> {
 	#[stripped_option_deref]

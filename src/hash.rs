@@ -133,7 +133,7 @@ fn fields_hash<'a>(
 	}
 
 	if partial_ord.is_empty() {
-		partial_ord.extend(quote! { 0xff.hash(state) })
+		partial_ord.extend(quote! { ::core::hash::Hash::hash(&0xffu32, state) })
 	}
 
 	partial_ord
@@ -159,13 +159,13 @@ fn field_hash(field: &syn::Field, path: Access) -> Option<proc_macro2::TokenStre
 		Method::UnwrapThenStripped => Some(quote! {
 			match #path.as_ref() {
 				Some(v) => ::core::hash::Hash::hash(&*v, state),
-				None => ::core::hash::Hash::hash(&0xff, state)
+				None => ::core::hash::Hash::hash(&0xffu32, state)
 			}
 		}),
 		Method::UnwrapThenDerefThenStripped => Some(quote! {
 			match #path.as_ref() {
 				Some(v) => ::core::hash::Hash::hash(&**v, state),
-				None => ::core::hash::Hash::hash(&0xff, state)
+				None => ::core::hash::Hash::hash(&0xffu32, state)
 			}
 		}),
 	}
