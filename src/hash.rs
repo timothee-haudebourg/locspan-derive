@@ -147,11 +147,11 @@ fn field_hash(field: &syn::Field, path: Access) -> Option<proc_macro2::TokenStre
 		Method::Normal => {
 			let path = path.by_ref();
 			Some(quote! { ::locspan::StrippedHash::stripped_hash(#path, state) })
-		},
+		}
 		Method::Stripped => {
 			let path = path.by_ref();
 			Some(quote! { ::core::hash::Hash::hash(#path, state) })
-		},
+		}
 		Method::DerefThenStripped => {
 			let path = path.by_deref();
 			Some(quote! { ::core::hash::Hash::hash(&#path, state) })

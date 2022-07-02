@@ -193,7 +193,9 @@ fn field_partial_ord(
 		Method::Normal => {
 			let self_path = self_path.by_ref();
 			let other_path = other_path.by_ref();
-			Some(quote! { ::locspan::StrippedPartialOrd::stripped_partial_cmp(#self_path, #other_path) })
+			Some(
+				quote! { ::locspan::StrippedPartialOrd::stripped_partial_cmp(#self_path, #other_path) },
+			)
 		}
 		Method::Stripped => {
 			let self_path = self_path.by_ref();
