@@ -16,11 +16,12 @@ pub struct B<T> {
 	b: usize,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, PartialOrd, Debug)]
 pub struct Thing<T>(T);
 
 #[derive(StrippedPartialEq, StrippedPartialOrd, Debug)]
-pub struct C<T: PartialEq> {
+#[stripped(T)]
+pub struct C<T> {
 	#[stripped_option_deref]
 	a: Option<Loc<Thing<T>, u32, ()>>,
 }

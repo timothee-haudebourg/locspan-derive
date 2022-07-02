@@ -162,8 +162,9 @@ fn field_comparisons(
 	match method {
 		Method::Ignore => None,
 		Method::Normal => {
+			let self_path = self_path.by_ref();
 			let other_path = other_path.by_ref();
-			Some(quote! { #self_path.stripped_eq(#other_path) })
+			Some(quote! { ::locspan::StrippedPartialEq::stripped_eq(#self_path, #other_path) })
 		}
 		Method::Stripped => Some(quote! { #self_path == #other_path }),
 		Method::DerefThenStripped => {

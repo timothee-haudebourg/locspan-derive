@@ -184,23 +184,25 @@ fn field_ord(
 	match method {
 		Method::Ignore => None,
 		Method::Normal => {
+			let self_path = self_path.by_ref();
 			let other_path = other_path.by_ref();
-			Some(quote! { #self_path.stripped_cmp(#other_path) })
+			Some(quote! { ::locspan::StrippedOrd::stripped_cmp(#self_path, #other_path) })
 		}
 		Method::Stripped => {
+			let self_path = self_path.by_ref();
 			let other_path = other_path.by_ref();
-			Some(quote! { #self_path.cmp(#other_path) })
+			Some(quote! { ::core::cmp::Ord::cmp(#self_path, #other_path) })
 		}
 		Method::DerefThenStripped => {
 			let self_path = self_path.by_deref();
 			let other_path = other_path.by_deref();
-			Some(quote! { (#self_path).cmp(&#other_path) })
+			Some(quote! { ::core::cmp::Ord::cmp(&#self_path, &#other_path) })
 		}
 		Method::UnwrapThenStripped => Some(
-			quote! { #self_path.as_ref().zip(#other_path.as_ref()).map(|(a, b)| (*a).cmp(&*b)).unwrap_or(::core::cmp::Ordering::Equal) },
+			quote! { #self_path.as_ref().zip(#other_path.as_ref()).map(|(a, b)| ::core::cmp::Ord::cmp(&*a, &*b)).unwrap_or(::core::cmp::Ordering::Equal) },
 		),
 		Method::UnwrapThenDerefThenStripped => Some(
-			quote! { #self_path.as_ref().zip(#other_path.as_ref()).map(|(a, b)| (**a).cmp(&**b)).unwrap_or(::core::cmp::Ordering::Equal) },
+			quote! { #self_path.as_ref().zip(#other_path.as_ref()).map(|(a, b)| ::core::cmp::Ord::cmp(&**a, &**b)).unwrap_or(::core::cmp::Ordering::Equal) },
 		),
 	}
 }

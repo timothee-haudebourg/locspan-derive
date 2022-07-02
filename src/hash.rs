@@ -144,22 +144,28 @@ fn field_hash(field: &syn::Field, path: Access) -> Option<proc_macro2::TokenStre
 
 	match method {
 		Method::Ignore => None,
-		Method::Normal => Some(quote! { #path.stripped_hash(state) }),
-		Method::Stripped => Some(quote! { #path.hash(state) }),
+		Method::Normal => {
+			let path = path.by_ref();
+			Some(quote! { ::locspan::StrippedHash::stripped_hash(#path, state) })
+		},
+		Method::Stripped => {
+			let path = path.by_ref();
+			Some(quote! { ::core::hash::Hash::hash(#path, state) })
+		},
 		Method::DerefThenStripped => {
 			let path = path.by_deref();
-			Some(quote! { (#path).hash(state) })
+			Some(quote! { ::core::hash::Hash::hash(&#path, state) })
 		}
 		Method::UnwrapThenStripped => Some(quote! {
 			match #path.as_ref() {
-				Some(v) => (*v).hash(state),
-				None => 0xff.hash(state)
+				Some(v) => ::core::hash::Hash::hash(&*v, state),
+				None => ::core::hash::Hash::hash(&0xff, state)
 			}
 		}),
 		Method::UnwrapThenDerefThenStripped => Some(quote! {
 			match #path.as_ref() {
-				Some(v) => (**v).hash(state),
-				None => 0xff.hash(state)
+				Some(v) => ::core::hash::Hash::hash(&**v, state),
+				None => ::core::hash::Hash::hash(&0xff, state)
 			}
 		}),
 	}
