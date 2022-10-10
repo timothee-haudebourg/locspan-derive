@@ -108,13 +108,14 @@ pub fn derive(input: syn::DeriveInput) -> Result<TokenStream, Error> {
 					.map(|v| crate::variant_pattern(v, |_| None).0)
 					.collect();
 
-				let partial_ord =
-					fields_partial_ord(variant.fields.iter().zip(
+				let partial_ord = fields_partial_ord(
+					variant.fields.iter().zip(
 						self_args
 							.into_iter()
 							.map(Access::Reference)
 							.zip(other_args.into_iter().map(Access::Reference)),
-					));
+					),
+				);
 
 				if !less_patterns.is_empty() {
 					cases.push(quote! {
@@ -207,11 +208,19 @@ fn field_partial_ord(
 			let other_path = other_path.by_deref();
 			Some(quote! { ::core::cmp::PartialOrd::partial_cmp(&#self_path, &#other_path) })
 		}
+		Method::Deref2ThenStripped => {
+			let self_path = self_path.by_deref();
+			let other_path = other_path.by_deref();
+			Some(quote! { ::core::cmp::PartialOrd::partial_cmp(&*#self_path, &*#other_path) })
+		}
 		Method::UnwrapThenStripped => Some(
 			quote! { #self_path.as_ref().zip(#other_path.as_ref()).map(|(a, b)| ::core::cmp::PartialOrd::partial_cmp(&*a, &*b)).unwrap_or(Some(::core::cmp::Ordering::Equal)) },
 		),
 		Method::UnwrapThenDerefThenStripped => Some(
 			quote! { #self_path.as_ref().zip(#other_path.as_ref()).map(|(a, b)| ::core::cmp::PartialOrd::partial_cmp(&**a, &**b)).unwrap_or(Some(::core::cmp::Ordering::Equal)) },
+		),
+		Method::UnwrapThenDeref2ThenStripped => Some(
+			quote! { #self_path.as_ref().zip(#other_path.as_ref()).map(|(a, b)| ::core::cmp::PartialOrd::partial_cmp(&***a, &***b)).unwrap_or(Some(::core::cmp::Ordering::Equal)) },
 		),
 	}
 }

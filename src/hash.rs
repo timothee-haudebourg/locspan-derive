@@ -156,6 +156,10 @@ fn field_hash(field: &syn::Field, path: Access) -> Option<proc_macro2::TokenStre
 			let path = path.by_deref();
 			Some(quote! { ::core::hash::Hash::hash(&#path, state) })
 		}
+		Method::Deref2ThenStripped => {
+			let path = path.by_deref();
+			Some(quote! { ::core::hash::Hash::hash(&*#path, state) })
+		}
 		Method::UnwrapThenStripped => Some(quote! {
 			match #path.as_ref() {
 				Some(v) => ::core::hash::Hash::hash(&*v, state),
@@ -165,6 +169,12 @@ fn field_hash(field: &syn::Field, path: Access) -> Option<proc_macro2::TokenStre
 		Method::UnwrapThenDerefThenStripped => Some(quote! {
 			match #path.as_ref() {
 				Some(v) => ::core::hash::Hash::hash(&**v, state),
+				None => ::core::hash::Hash::hash(&0xffu32, state)
+			}
+		}),
+		Method::UnwrapThenDeref2ThenStripped => Some(quote! {
+			match #path.as_ref() {
+				Some(v) => ::core::hash::Hash::hash(&***v, state),
 				None => ::core::hash::Hash::hash(&0xffu32, state)
 			}
 		}),

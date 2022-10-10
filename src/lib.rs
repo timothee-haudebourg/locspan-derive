@@ -140,8 +140,10 @@ enum Method {
 	Ignore,
 	Stripped,
 	DerefThenStripped,
+	Deref2ThenStripped,
 	UnwrapThenStripped,
 	UnwrapThenDerefThenStripped,
+	UnwrapThenDeref2ThenStripped,
 }
 
 fn read_method(attrs: &[syn::Attribute]) -> Method {
@@ -160,12 +162,20 @@ fn read_method(attrs: &[syn::Attribute]) -> Method {
 			method = Method::DerefThenStripped
 		}
 
+		if attr.path.is_ident("stripped_deref2") {
+			method = Method::Deref2ThenStripped
+		}
+
 		if attr.path.is_ident("stripped_option") {
 			method = Method::UnwrapThenStripped
 		}
 
 		if attr.path.is_ident("stripped_option_deref") {
 			method = Method::UnwrapThenDerefThenStripped
+		}
+
+		if attr.path.is_ident("stripped_option_deref2") {
+			method = Method::UnwrapThenDeref2ThenStripped
 		}
 	}
 
@@ -264,8 +274,10 @@ where
 	attributes(
 		stripped,
 		stripped_deref,
+		stripped_deref2,
 		stripped_option,
 		stripped_option_deref,
+		stripped_option_deref2,
 		stripped_ignore
 	)
 )]
@@ -291,8 +303,10 @@ pub fn derive_stripped_partial_eq(input: TokenStream) -> TokenStream {
 	attributes(
 		stripped,
 		stripped_deref,
+		stripped_deref2,
 		stripped_option,
 		stripped_option_deref,
+		stripped_option_deref2,
 		stripped_ignore
 	)
 )]
@@ -307,8 +321,10 @@ pub fn derive_stripped_eq(input: TokenStream) -> TokenStream {
 	attributes(
 		stripped,
 		stripped_deref,
+		stripped_deref2,
 		stripped_option,
 		stripped_option_deref,
+		stripped_option_deref2,
 		stripped_ignore
 	)
 )]
@@ -334,8 +350,10 @@ pub fn derive_stripped_partial_ord(input: TokenStream) -> TokenStream {
 	attributes(
 		stripped,
 		stripped_deref,
+		stripped_deref2,
 		stripped_option,
 		stripped_option_deref,
+		stripped_option_deref2,
 		stripped_ignore
 	)
 )]
@@ -361,8 +379,10 @@ pub fn derive_stripped_ord(input: TokenStream) -> TokenStream {
 	attributes(
 		stripped,
 		stripped_deref,
+		stripped_deref2,
 		stripped_option,
 		stripped_option_deref,
+		stripped_option_deref2,
 		stripped_ignore
 	)
 )]

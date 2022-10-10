@@ -96,13 +96,14 @@ pub fn derive(input: syn::DeriveInput) -> Result<TokenStream, Error> {
 					))
 				});
 
-				let comparisons =
-					fields_comparisons(v.fields.iter().zip(
+				let comparisons = fields_comparisons(
+					v.fields.iter().zip(
 						self_args
 							.into_iter()
 							.map(Access::Reference)
 							.zip(other_args.into_iter().map(Access::Reference)),
-					));
+					),
+				);
 
 				quote! {
 					(Self::#self_pattern, Self::#other_pattern) => {
@@ -172,11 +173,19 @@ fn field_comparisons(
 			let other_path = other_path.by_deref();
 			Some(quote! { #self_path == #other_path })
 		}
+		Method::Deref2ThenStripped => {
+			let self_path = self_path.by_deref();
+			let other_path = other_path.by_deref();
+			Some(quote! { *#self_path == *#other_path })
+		}
 		Method::UnwrapThenStripped => Some(
 			quote! { #self_path.as_ref().zip(#other_path.as_ref()).map(|(a, b)| *a == *b).unwrap_or(true) },
 		),
 		Method::UnwrapThenDerefThenStripped => Some(
 			quote! { #self_path.as_ref().zip(#other_path.as_ref()).map(|(a, b)| **a == **b).unwrap_or(true) },
+		),
+		Method::UnwrapThenDeref2ThenStripped => Some(
+			quote! { #self_path.as_ref().zip(#other_path.as_ref()).map(|(a, b)| ***a == ***b).unwrap_or(true) },
 		),
 	}
 }

@@ -26,6 +26,13 @@ pub struct C<T> {
 	a: Option<Loc<Thing<T>, u32, ()>>,
 }
 
+#[derive(StrippedPartialEq, StrippedEq, StrippedPartialOrd, StrippedHash, Debug)]
+#[stripped(T)]
+pub struct D<T> {
+	#[stripped_option_deref2]
+	a: Option<Loc<Loc<Thing<T>, u32, ()>, u32, ()>>,
+}
+
 #[derive(StrippedPartialEq, Debug)]
 #[stripped_ignore(S, P)]
 pub struct Foo<T: Clone, S, P>(Loc<T, S, P>);
@@ -36,6 +43,21 @@ fn main() {
 	};
 	let b = C {
 		a: Some(Loc(Thing(0u32), Location::new(1u32, ()))),
+	};
+
+	assert_eq!(a.stripped(), b.stripped());
+
+	let a = D {
+		a: Some(Loc(
+			Loc(Thing(0u32), Location::new(1u32, ())),
+			Location::new(0u32, ()),
+		)),
+	};
+	let b = D {
+		a: Some(Loc(
+			Loc(Thing(0u32), Location::new(0u32, ())),
+			Location::new(1u32, ()),
+		)),
 	};
 
 	assert_eq!(a.stripped(), b.stripped());
