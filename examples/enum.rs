@@ -6,11 +6,15 @@ use locspan_derive::{
 #[derive(
 	PartialEq, StrippedPartialEq, StrippedEq, StrippedPartialOrd, StrippedOrd, StrippedHash, Debug,
 )]
-#[stripped_ignore(S, P)]
+#[locspan(ignore(S, P))]
 pub enum Foo<S, P> {
-	A(#[stripped_deref] Loc<usize, S, P>),
-	B(#[stripped] char, #[stripped] usize),
-	C(#[stripped_deref] Loc<usize, S, P>, #[stripped] char, u8),
+	A(#[locspan(deref_stripped)] Loc<usize, S, P>),
+	B(#[locspan(stripped)] char, #[locspan(stripped)] usize),
+	C(
+		#[locspan(deref_stripped)] Loc<usize, S, P>,
+		#[locspan(stripped)] char,
+		u8,
+	),
 }
 
 fn main() {

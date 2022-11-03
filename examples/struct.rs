@@ -12,29 +12,29 @@ pub struct A<T: Clone> {
 #[derive(StrippedPartialEq, StrippedPartialOrd, Debug)]
 pub struct B<T> {
 	a: Loc<T, (), ()>,
-	#[stripped]
+	#[locspan(stripped)]
 	b: usize,
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Hash, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Thing<T>(T);
 
 #[derive(StrippedPartialEq, StrippedEq, StrippedPartialOrd, StrippedHash, Debug)]
-#[stripped(T)]
+#[locspan(stripped(T), fixed(T))]
 pub struct C<T> {
-	#[stripped_option_deref]
+	#[locspan(unwrap_deref_stripped)]
 	a: Option<Loc<Thing<T>, u32, ()>>,
 }
 
 #[derive(StrippedPartialEq, StrippedEq, StrippedPartialOrd, StrippedHash, Debug)]
-#[stripped(T)]
+#[locspan(stripped(T), fixed(T))]
 pub struct D<T> {
-	#[stripped_option_deref2]
+	#[locspan(unwrap_deref2_stripped)]
 	a: Option<Loc<Loc<Thing<T>, u32, ()>, u32, ()>>,
 }
 
 #[derive(StrippedPartialEq, Debug)]
-#[stripped_ignore(S, P)]
+#[locspan(ignore(S, P))]
 pub struct Foo<T: Clone, S, P>(Loc<T, S, P>);
 
 fn main() {

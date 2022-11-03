@@ -11,73 +11,38 @@
 //! // Implement `StrippedPartialEq` for the `Foo` type.
 //! // Type parameters will be required to implement
 //! // `StrippedPartialEq` themselves unless they are marked
-//! // with `#[stripped_ignore]`.
+//! // with `#[locspan(ignore(...))]`.
 //! #[derive(StrippedPartialEq)]
-//! #[stripped_ignore(S, P)]
+//! #[locspan(ignore(S, P))]
 //! struct Foo<T, S, P> {
 //!   a: Loc<T, S, P>,
 //!
 //!   // Files are compared using `StrippedPartialEq`
-//!   // unless they are marked with `#[stripped]`, in
+//!   // unless they are marked with `#[locspan(stripped)]`, in
 //!   // which case `PartialEq` is used.
-//!   #[stripped]
+//!   #[locspan(stripped)]
 //!   b: std::path::PathBuf
 //! }
 //! ```
 use proc_macro::{Span, TokenStream};
 use proc_macro_error::{emit_error, proc_macro_error};
 use quote::quote;
-use std::collections::HashMap;
 use std::fmt;
-use syn::{parse, parse_macro_input, punctuated::Punctuated, token, DeriveInput};
+use syn::{parse_macro_input, DeriveInput};
 
 mod eq;
 mod hash;
 mod ord;
 mod partial_eq;
 mod partial_ord;
+pub(crate) mod syntax;
+pub(crate) mod util;
 
-struct Idents {
-	_paren: token::Paren,
-	idents: Punctuated<syn::Ident, token::Comma>,
-}
-
-impl parse::Parse for Idents {
-	fn parse(input: parse::ParseStream) -> syn::Result<Self> {
-		let content;
-		Ok(Self {
-			_paren: syn::parenthesized!(content in input),
-			idents: Punctuated::parse_terminated(&content)?,
-		})
-	}
-}
-
-#[derive(Clone, Copy)]
-enum ParamConfig {
-	Ignore,
-	Stripped,
-}
-
-fn read_params_config(attrs: Vec<syn::Attribute>) -> HashMap<proc_macro2::Ident, ParamConfig> {
-	let mut params = HashMap::new();
-
-	for attr in attrs {
-		if attr.path.is_ident("stripped") {
-			let tokens = attr.tokens.into();
-			let idents: Idents = syn::parse(tokens).unwrap();
-			for ident in idents.idents {
-				params.insert(ident, ParamConfig::Stripped);
-			}
-		} else if attr.path.is_ident("stripped_ignore") {
-			let tokens = attr.tokens.into();
-			let idents: Idents = syn::parse(tokens).unwrap();
-			for ident in idents.idents {
-				params.insert(ident, ParamConfig::Ignore);
-			}
-		}
-	}
-
-	params
+#[derive(Default, Clone, Copy)]
+pub(crate) struct ParamConfig {
+	ignore: bool,
+	stripped: bool,
+	fixed: bool,
 }
 
 enum Access {
@@ -135,7 +100,7 @@ impl<'a> quote::ToTokens for ByDeref<'a> {
 	}
 }
 
-enum Method {
+pub(crate) enum Method {
 	Normal,
 	Ignore,
 	Stripped,
@@ -144,42 +109,6 @@ enum Method {
 	UnwrapThenStripped,
 	UnwrapThenDerefThenStripped,
 	UnwrapThenDeref2ThenStripped,
-}
-
-fn read_method(attrs: &[syn::Attribute]) -> Method {
-	let mut method = Method::Normal;
-
-	for attr in attrs {
-		if attr.path.is_ident("stripped") {
-			method = Method::Stripped
-		}
-
-		if attr.path.is_ident("stripped_ignore") {
-			method = Method::Ignore
-		}
-
-		if attr.path.is_ident("stripped_deref") {
-			method = Method::DerefThenStripped
-		}
-
-		if attr.path.is_ident("stripped_deref2") {
-			method = Method::Deref2ThenStripped
-		}
-
-		if attr.path.is_ident("stripped_option") {
-			method = Method::UnwrapThenStripped
-		}
-
-		if attr.path.is_ident("stripped_option_deref") {
-			method = Method::UnwrapThenDerefThenStripped
-		}
-
-		if attr.path.is_ident("stripped_option_deref2") {
-			method = Method::UnwrapThenDeref2ThenStripped
-		}
-	}
-
-	method
 }
 
 /// Returns an iterator over the fields and access methods for `self`.
@@ -269,23 +198,13 @@ where
 }
 
 #[proc_macro_error]
-#[proc_macro_derive(
-	StrippedPartialEq,
-	attributes(
-		stripped,
-		stripped_deref,
-		stripped_deref2,
-		stripped_option,
-		stripped_option_deref,
-		stripped_option_deref2,
-		stripped_ignore
-	)
-)]
+#[proc_macro_derive(StrippedPartialEq, attributes(locspan))]
 pub fn derive_stripped_partial_eq(input: TokenStream) -> TokenStream {
 	let input = parse_macro_input!(input as DeriveInput);
 	match partial_eq::derive(input) {
 		Ok(output) => output.into(),
 		Err(e) => match e {
+			partial_eq::Error::Syntax(e) => e.to_compile_error().into(),
 			partial_eq::Error::Union => {
 				emit_error!(
 					Span::call_site(),
@@ -298,41 +217,20 @@ pub fn derive_stripped_partial_eq(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_error]
-#[proc_macro_derive(
-	StrippedEq,
-	attributes(
-		stripped,
-		stripped_deref,
-		stripped_deref2,
-		stripped_option,
-		stripped_option_deref,
-		stripped_option_deref2,
-		stripped_ignore
-	)
-)]
+#[proc_macro_derive(StrippedEq, attributes(locspan))]
 pub fn derive_stripped_eq(input: TokenStream) -> TokenStream {
 	let input = parse_macro_input!(input as DeriveInput);
 	eq::derive(input).into()
 }
 
 #[proc_macro_error]
-#[proc_macro_derive(
-	StrippedPartialOrd,
-	attributes(
-		stripped,
-		stripped_deref,
-		stripped_deref2,
-		stripped_option,
-		stripped_option_deref,
-		stripped_option_deref2,
-		stripped_ignore
-	)
-)]
+#[proc_macro_derive(StrippedPartialOrd, attributes(locspan))]
 pub fn derive_stripped_partial_ord(input: TokenStream) -> TokenStream {
 	let input = parse_macro_input!(input as DeriveInput);
 	match partial_ord::derive(input) {
 		Ok(output) => output.into(),
 		Err(e) => match e {
+			partial_ord::Error::Syntax(e) => e.to_compile_error().into(),
 			partial_ord::Error::Union => {
 				emit_error!(
 					Span::call_site(),
@@ -345,23 +243,13 @@ pub fn derive_stripped_partial_ord(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_error]
-#[proc_macro_derive(
-	StrippedOrd,
-	attributes(
-		stripped,
-		stripped_deref,
-		stripped_deref2,
-		stripped_option,
-		stripped_option_deref,
-		stripped_option_deref2,
-		stripped_ignore
-	)
-)]
+#[proc_macro_derive(StrippedOrd, attributes(locspan))]
 pub fn derive_stripped_ord(input: TokenStream) -> TokenStream {
 	let input = parse_macro_input!(input as DeriveInput);
 	match ord::derive(input) {
 		Ok(output) => output.into(),
 		Err(e) => match e {
+			ord::Error::Syntax(e) => e.to_compile_error().into(),
 			ord::Error::Union => {
 				emit_error!(
 					Span::call_site(),
@@ -374,23 +262,13 @@ pub fn derive_stripped_ord(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_error]
-#[proc_macro_derive(
-	StrippedHash,
-	attributes(
-		stripped,
-		stripped_deref,
-		stripped_deref2,
-		stripped_option,
-		stripped_option_deref,
-		stripped_option_deref2,
-		stripped_ignore
-	)
-)]
+#[proc_macro_derive(StrippedHash, attributes(locspan))]
 pub fn derive_stripped_hash(input: TokenStream) -> TokenStream {
 	let input = parse_macro_input!(input as DeriveInput);
 	match hash::derive(input) {
 		Ok(output) => output.into(),
 		Err(e) => match e {
+			hash::Error::Syntax(e) => e.to_compile_error().into(),
 			hash::Error::Union => {
 				emit_error!(
 					Span::call_site(),

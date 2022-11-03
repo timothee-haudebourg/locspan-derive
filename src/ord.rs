@@ -1,74 +1,34 @@
-use crate::{Access, Method, ParamConfig};
+use crate::{util, Access, Method};
 use proc_macro2::TokenStream;
 use quote::quote;
 
 pub enum Error {
+	Syntax(syn::Error),
 	Union,
 }
 
 pub fn derive(input: syn::DeriveInput) -> Result<TokenStream, Error> {
 	let ident = input.ident;
 	let mut generics = input.generics;
-	let params = crate::read_params_config(input.attrs);
+	let params = crate::syntax::parse_type_attributes(input.attrs);
 
 	for p in generics.params.iter_mut() {
 		if let syn::GenericParam::Type(ty) = p {
-			match params.get(&ty.ident) {
-				Some(ParamConfig::Ignore) => (),
-				Some(ParamConfig::Stripped) => {
-					ty.bounds.push(syn::TypeParamBound::Trait(syn::TraitBound {
-						paren_token: None,
-						modifier: syn::TraitBoundModifier::None,
-						lifetimes: None,
-						path: syn::Path {
-							leading_colon: Some(syn::token::Colon2::default()),
-							segments: [
-								syn::PathSegment {
-									ident: syn::Ident::new("core", proc_macro2::Span::call_site()),
-									arguments: syn::PathArguments::None,
-								},
-								syn::PathSegment {
-									ident: syn::Ident::new("cmp", proc_macro2::Span::call_site()),
-									arguments: syn::PathArguments::None,
-								},
-								syn::PathSegment {
-									ident: syn::Ident::new("Ord", proc_macro2::Span::call_site()),
-									arguments: syn::PathArguments::None,
-								},
-							]
-							.into_iter()
-							.collect(),
-						},
-					}));
-				}
-				None => {
-					ty.bounds.push(syn::TypeParamBound::Trait(syn::TraitBound {
-						paren_token: None,
-						modifier: syn::TraitBoundModifier::None,
-						lifetimes: None,
-						path: syn::Path {
-							leading_colon: Some(syn::token::Colon2::default()),
-							segments: [
-								syn::PathSegment {
-									ident: syn::Ident::new(
-										"locspan",
-										proc_macro2::Span::call_site(),
-									),
-									arguments: syn::PathArguments::None,
-								},
-								syn::PathSegment {
-									ident: syn::Ident::new(
-										"StrippedOrd",
-										proc_macro2::Span::call_site(),
-									),
-									arguments: syn::PathArguments::None,
-								},
-							]
-							.into_iter()
-							.collect(),
-						},
-					}));
-				}
+			let conf = params.get(&ty.ident).cloned().unwrap_or_default();
+
+			if !conf.ignore {
+				let path = if conf.stripped {
+					util::simple_path(["core", "cmp"], "Ord", syn::PathArguments::None)
+				} else {
+					util::simple_path(["locspan"], "StrippedOrd", syn::PathArguments::None)
+				};
+
+				ty.bounds.push(syn::TypeParamBound::Trait(syn::TraitBound {
+					paren_token: None,
+					modifier: syn::TraitBoundModifier::None,
+					lifetimes: None,
+					path,
+				}));
 			}
 		}
 	}
@@ -76,7 +36,9 @@ pub fn derive(input: syn::DeriveInput) -> Result<TokenStream, Error> {
 	let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
 	let ordering = match input.data {
-		syn::Data::Struct(s) => fields_ord(crate::fields_access_pairs(&s.fields)),
+		syn::Data::Struct(s) => {
+			fields_ord(crate::fields_access_pairs(&s.fields)).map_err(Error::Syntax)?
+		}
 		syn::Data::Enum(e) => {
 			let mut cases = Vec::new();
 
@@ -112,7 +74,8 @@ pub fn derive(input: syn::DeriveInput) -> Result<TokenStream, Error> {
 							.map(Access::Reference)
 							.zip(other_args.into_iter().map(Access::Reference)),
 					),
-				);
+				)
+				.map_err(Error::Syntax)?;
 
 				if !less_patterns.is_empty() {
 					cases.push(quote! {
@@ -153,11 +116,11 @@ pub fn derive(input: syn::DeriveInput) -> Result<TokenStream, Error> {
 
 fn fields_ord<'a>(
 	fields: impl 'a + IntoIterator<Item = (&'a syn::Field, (Access, Access))>,
-) -> proc_macro2::TokenStream {
+) -> syn::Result<proc_macro2::TokenStream> {
 	let mut partial_ord = proc_macro2::TokenStream::new();
 
 	for (field, (self_path, other_path)) in fields {
-		if let Some(c) = field_ord(field, self_path, other_path) {
+		if let Some(c) = field_ord(field, self_path, other_path)? {
 			if partial_ord.is_empty() {
 				partial_ord = c
 			} else {
@@ -172,17 +135,17 @@ fn fields_ord<'a>(
 		partial_ord.extend(quote! { ::core::cmp::Ordering::Equal })
 	}
 
-	partial_ord
+	Ok(partial_ord)
 }
 
 fn field_ord(
 	field: &syn::Field,
 	self_path: Access,
 	other_path: Access,
-) -> Option<proc_macro2::TokenStream> {
-	let method = crate::read_method(&field.attrs);
+) -> syn::Result<Option<proc_macro2::TokenStream>> {
+	let method = crate::syntax::parse_field_attributes(&field.attrs)?;
 
-	match method {
+	Ok(match method {
 		Method::Ignore => None,
 		Method::Normal => {
 			let self_path = self_path.by_ref();
@@ -213,5 +176,5 @@ fn field_ord(
 		Method::UnwrapThenDeref2ThenStripped => Some(
 			quote! { #self_path.as_ref().zip(#other_path.as_ref()).map(|(a, b)| ::core::cmp::Ord::cmp(&***a, &***b)).unwrap_or(::core::cmp::Ordering::Equal) },
 		),
-	}
+	})
 }

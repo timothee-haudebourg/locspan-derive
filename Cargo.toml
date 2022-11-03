@@ -1,6 +1,6 @@
 [package]
 name = "locspan-derive"
-version = "0.5.2"
+version = "0.6.0"
 edition = "2021"
 authors = ["Timothée Haudebourg <author@haudebourg.net>"]
 description = "Derive macros for the `locspan` code mapping library"
