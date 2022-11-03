@@ -18,15 +18,16 @@ use locspan_derive::StrippedPartialEq;
 // Implement `StrippedPartialEq` for the `Foo` type.
 // Type parameters will be required to implement
 // `StrippedPartialEq` themselves unless they are marked
-// with `#[stripped]`.
+// with `#[locspan(ignore(...))]`.
 #[derive(StrippedPartialEq)]
-struct Foo<T, #[stripped] S, #[stripped] P> {
+#[locspan(ignore(S, P))]
+struct Foo<T, S, P> {
   a: Loc<T, S, P>,
 
   // Files are compared using `StrippedPartialEq`
-  // unless they are marked with `#[stripped]`, in
+  // unless they are marked with `#[locspan(stripped)]`, in
   // which case `PartialEq` is used.
-  #[stripped]
+  #[locspan(stripped)]
   b: std::path::PathBuf
 }
 ```
