@@ -103,6 +103,7 @@ impl<'a> quote::ToTokens for ByDeref<'a> {
 pub(crate) enum Method {
 	Normal,
 	Ignore,
+	Deref,
 	Stripped,
 	DerefThenStripped,
 	Deref2ThenStripped,

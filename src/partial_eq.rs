@@ -146,6 +146,11 @@ fn field_comparisons(
 			let other_path = other_path.by_ref();
 			Some(quote! { ::locspan::StrippedPartialEq::stripped_eq(#self_path, #other_path) })
 		}
+		Method::Deref => {
+			let self_path = self_path.by_deref();
+			let other_path = other_path.by_deref();
+			Some(quote! { ::locspan::StrippedPartialEq::stripped_eq(&#self_path, &#other_path) })
+		}
 		Method::Stripped => Some(quote! { #self_path == #other_path }),
 		Method::DerefThenStripped => {
 			let self_path = self_path.by_deref();

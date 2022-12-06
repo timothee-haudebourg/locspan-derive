@@ -152,6 +152,11 @@ fn field_ord(
 			let other_path = other_path.by_ref();
 			Some(quote! { ::locspan::StrippedOrd::stripped_cmp(#self_path, #other_path) })
 		}
+		Method::Deref => {
+			let self_path = self_path.by_deref();
+			let other_path = other_path.by_deref();
+			Some(quote! { ::locspan::StrippedOrd::stripped_cmp(&#self_path, &#other_path) })
+		}
 		Method::Stripped => {
 			let self_path = self_path.by_ref();
 			let other_path = other_path.by_ref();

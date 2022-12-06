@@ -117,6 +117,10 @@ fn field_hash(field: &syn::Field, path: Access) -> syn::Result<Option<proc_macro
 			let path = path.by_ref();
 			Some(quote! { ::locspan::StrippedHash::stripped_hash(#path, state) })
 		}
+		Method::Deref => {
+			let path = path.by_deref();
+			Some(quote! { ::locspan::StrippedHash::stripped_hash(&#path, state) })
+		}
 		Method::Stripped => {
 			let path = path.by_ref();
 			Some(quote! { ::core::hash::Hash::hash(#path, state) })

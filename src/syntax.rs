@@ -29,7 +29,9 @@ impl parse::Parse for FieldAttribute {
 		let _paren = syn::parenthesized!(content in input);
 		let _method_ident = syn::Ident::parse(&content)?;
 
-		let method = if _method_ident == "stripped" {
+		let method = if _method_ident == "deref" {
+			Method::Deref
+		} else if _method_ident == "stripped" {
 			Method::Stripped
 		} else if _method_ident == "ignore" {
 			Method::Ignore
